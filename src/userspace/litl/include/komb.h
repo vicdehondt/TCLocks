@@ -121,7 +121,7 @@ typedef struct komb_node {
         };
         uint16_t locked_completed;
     };
-    char dummy2[48];
+    char dummy2[56];
 } komb_node_t __attribute__((aligned(L_CACHE_LINE_SIZE)));
 
 typedef pthread_cond_t komb_cond_t;
