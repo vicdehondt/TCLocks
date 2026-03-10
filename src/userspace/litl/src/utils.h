@@ -46,11 +46,27 @@
 
 #define OPTERON_OPTIMIZE 1
 #ifdef OPTERON_OPTIMIZE
-#define PREFETCHW(x) asm volatile("prefetchw %0" ::"m"(*(unsigned long *)x))
-#define PREFETCH(x) asm volatile("prefetch %0" ::"m"(*(unsigned long *)x))
+#  if defined(__x86_64__) || defined(__i386__)
+#    define PREFETCHW(x) asm volatile("prefetchw %0" ::"m"(*(unsigned long *)x))
+#    define PREFETCH(x) asm volatile("prefetch %0" ::"m"(*(unsigned long *)x))
+#  elif defined(__aarch64__) || defined(__arm__)
+#    define PREFETCHW(x) __builtin_prefetch((x), 1, 1)
+#    define PREFETCH(x)  __builtin_prefetch((x), 0, 1)
+#  else
+#    define PREFETCHW(x)
+#    define PREFETCH(x)
+#  endif
 #else
-#define PREFETCHW(x)
+#  define PREFETCHW(x)
+#  define PREFETCH(x)
 #endif
+
+// #ifdef OPTERON_OPTIMIZE
+// #define PREFETCHW(x) asm volatile("prefetchw %0" ::"m"(*(unsigned long *)x))
+// #define PREFETCH(x) asm volatile("prefetch %0" ::"m"(*(unsigned long *)x))
+// #else
+// #define PREFETCHW(x)
+// #endif
 
 #ifdef UNUSED
 #elif defined(__GNUC__)

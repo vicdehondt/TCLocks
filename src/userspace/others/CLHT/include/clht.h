@@ -96,6 +96,11 @@
 #  define _mm_sfence() arch_atomic_write_barrier()
 #  define _mm_mfence() arch_atomic_full_barrier()
 #  define _mm_pause() cycle_relax()
+#elif defined(__aarch64__) || defined(__arm__)
+#  define _mm_pause()  asm volatile("yield" ::: "memory")
+#  define _mm_mfence() asm volatile("dmb ish" ::: "memory")
+#  define _mm_lfence() asm volatile("dmb ishld" ::: "memory")
+#  define _mm_sfence() asm volatile("dmb ishst" ::: "memory")
 #endif
 
 #define CAS_U64_BOOL(a, b, c) (CAS_U64(a, b, c) == b)

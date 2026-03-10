@@ -27,6 +27,10 @@
 #  include <tmc/task.h>
 #  include <tmc/spin.h>
 #  include <sched.h>
+#elif defined(__aarch64__) || defined(__arm__)
+#  ifdef NUMA
+#    include <numa.h>
+#  endif
 #else
 #  include <emmintrin.h>
 #  include <xmmintrin.h>
@@ -50,6 +54,8 @@ extern "C" {
 
 #elif defined(__tile__)
 #  define PAUSE cycle_relax()
+#elif defined(__aarch64__) || defined(__arm__)
+#  define PAUSE asm volatile("yield" ::: "memory")
 #else
 #  define PAUSE _mm_pause()
 #endif
@@ -238,8 +244,8 @@ extern "C" {
 #  define PREFETCHW(x)		
 #elif defined(XEON)
 #  define PREFETCHW(x)		
-#else
-#  define PREFETCHW(x)		
+#elif !defined(PREFETCHW)
+#  define PREFETCHW(x)
 #endif
 
   //debugging functions

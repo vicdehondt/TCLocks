@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include <assert.h>
 #include <errno.h>
 #include <papi.h>
@@ -108,14 +110,13 @@ static inline int current_numa_node() {
         return 0;
 #endif
 
-#if !defined(NUMA_NODES) || NUMA_NODES <= 1
-    // Single-node system (e.g. Raspberry Pi): always NUMA node 0.
-    // Also guards against the division-by-zero when NUMA_NODES is 0 or 1.
+#if !defined(NUMA_NODES) || NUMA_NODES <= 1 || CPU_NUMBER <= NUMA_NODES
     (void)core;
     return 0;
 #else
     return core / (CPU_NUMBER / NUMA_NODES);
 #endif
+
 }
 
 #define false 0
@@ -127,11 +128,19 @@ static inline int current_numa_node() {
 static long komb_batch_size = 262144;
 
 static inline void smp_wmb(void) {
-    __asm __volatile("sfence" ::: "memory");
+    #if defined(__x86_64__)
+        __asm __volatile("sfence" ::: "memory");
+    #else
+        asm volatile("dmb ishst" ::: "memory");
+    #endif
 }
 
 static inline void smp_mb(void) {
-    __asm __volatile("mfence" ::: "memory");
+    #if defined(__x86_64__)
+        __asm __volatile("mfence" ::: "memory");
+    #else
+        asm volatile("dmb ish" ::: "memory");
+    #endif
 }
 
 _Thread_local komb_node_t *volatile local_queue_head;
@@ -156,23 +165,49 @@ _Thread_local volatile long counter_val;
  */
 __attribute__((noipa, noinline)) void
 komb_context_switch(void *incoming_rsp_ptr, void *outgoing_rsp_ptr) {
-    asm volatile("pushq %%rbp\n"
-                 "pushq %%rbx\n"
-                 "pushq %%r12\n"
-                 "pushq %%r13\n"
-                 "pushq %%r14\n"
-                 "pushq %%r15\n"
-                 "movq %%rsp, (%%rsi)\n"
-                 "movq (%%rdi), %%rsp\n"
-                 "popq %%r15\n"
-                 "popq %%r14\n"
-                 "popq %%r13\n"
-                 "popq %%r12\n"
-                 "popq %%rbx\n"
-                 "popq %%rbp\n"
-                 :
-                 :
-                 : "memory");
+    #if defined(__x86_64__)
+        asm volatile("pushq %%rbp\n"
+                    "pushq %%rbx\n"
+                    "pushq %%r12\n"
+                    "pushq %%r13\n"
+                    "pushq %%r14\n"
+                    "pushq %%r15\n"
+                    "movq %%rsp, (%%rsi)\n"
+                    "movq (%%rdi), %%rsp\n"
+                    "popq %%r15\n"
+                    "popq %%r14\n"
+                    "popq %%r13\n"
+                    "popq %%r12\n"
+                    "popq %%rbx\n"
+                    "popq %%rbp\n"
+                    :
+                    :
+                    : "memory");
+    #elif defined(__aarch64__)
+        // incoming_rsp_ptr -> x0, outgoing_rsp_ptr -> x1
+        // No bl calls here so x0/x1 stay valid throughout.
+        // x2 is caller-saved so we use it as scratch without saving it.
+        asm volatile(
+            "stp x29, x30, [sp, #-16]!\n"
+            "stp x27, x28, [sp, #-16]!\n"
+            "stp x25, x26, [sp, #-16]!\n"
+            "stp x23, x24, [sp, #-16]!\n"
+            "stp x21, x22, [sp, #-16]!\n"
+            "stp x19, x20, [sp, #-16]!\n"
+            "mov x2, sp\n"              /* x2 = current sp                  */
+            "str x2, [x1]\n"           /* *outgoing_rsp_ptr = current sp    */
+            "ldr x2, [x0]\n"           /* x2 = *incoming_rsp_ptr            */
+            "mov sp, x2\n"              /* sp = incoming stack               */
+            "ldp x19, x20, [sp], #16\n"
+            "ldp x21, x22, [sp], #16\n"
+            "ldp x23, x24, [sp], #16\n"
+            "ldp x25, x26, [sp], #16\n"
+            "ldp x27, x28, [sp], #16\n"
+            "ldp x29, x30, [sp], #16\n"
+            :
+            :
+            : "memory", "x2");
+    #endif
 }
 
 static __always_inline void clear_locked_set_completed(komb_node_t *node) {
@@ -392,7 +427,7 @@ release:
     return 0;
 }
 
-__attribute__((noipa, noinline)) static int
+__attribute__((noipa, noinline, used)) static int
 __komb_spin_lock_slowpath(komb_mutex_t *lock) {
     komb_node_t *curr_node;
 
@@ -412,67 +447,102 @@ __komb_spin_lock_slowpath(komb_mutex_t *lock) {
 }
 
 
-__attribute__((noipa, noinline)) static void *get_shadow_stack_ptr(void) {
+__attribute__((noipa, noinline, used)) static void *get_shadow_stack_ptr(void) {
     if(local_shadow_stack_ptr == 0)
 	    local_shadow_stack_ptr = (void *)shadow_stack_ptr + (8192 - 64);
     return (void *)&local_shadow_stack_ptr;
 }
 
-__attribute__((noipa, noinline)) static komb_node_t *get_komb_node(void) {
+__attribute__((noipa, noinline, used)) static komb_node_t *get_komb_node(void) {
     return (void *)&my_local_node;
 }
 
-__attribute__((noipa, noinline)) void
+__attribute__((noipa, noinline, used)) void
 komb_spin_lock_slowpath(komb_mutex_t *lock) {
-    asm volatile("add $0x8,%%rsp\n" ::: "memory");
-    asm volatile("pushq %%rbp\n"
-                 "pushq %%rbx\n"
-                 "pushq %%r12\n"
-                 "pushq %%r13\n"
-                 "pushq %%r14\n"
-                 "pushq %%r15\n"
-		 "pushq %%rdi\n"
-                 :
-                 :
-                 : "memory");
-    asm volatile("callq %P0\n"
-		 "popq %%rdi\n"
-                 "movq %%rsp, %c1(%%rax)\n"
-		 "pushq %%rdi\n"
-                 :
-                 : "i"(get_komb_node), "i"(offsetof(komb_node_t, rsp))
-                 : "memory");
+    #if defined(__x86_64__)
+        asm volatile("add $0x8,%%rsp\n" ::: "memory");
+        asm volatile("pushq %%rbp\n"
+                    "pushq %%rbx\n"
+                    "pushq %%r12\n"
+                    "pushq %%r13\n"
+                    "pushq %%r14\n"
+                    "pushq %%r15\n"
+            "pushq %%rdi\n"
+                    :
+                    :
+                    : "memory");
+        asm volatile("callq %P0\n"
+            "popq %%rdi\n"
+                    "movq %%rsp, %c1(%%rax)\n"
+            "pushq %%rdi\n"
+                    :
+                    : "i"(get_komb_node), "i"(offsetof(komb_node_t, rsp))
+                    : "memory");
 
-    asm volatile("callq %P0\n"
-		 "popq %%rdi\n"
-                 "movq (%%rax), %%rsp\n"
-                 :
-                 : "i"(get_shadow_stack_ptr)
-                 : "memory");
+        asm volatile("callq %P0\n"
+            "popq %%rdi\n"
+                    "movq (%%rax), %%rsp\n"
+                    :
+                    : "i"(get_shadow_stack_ptr)
+                    : "memory");
 
-    __komb_spin_lock_slowpath(lock);
+        __komb_spin_lock_slowpath(lock);
 
-    asm volatile("callq %P0\n"
-                 "movq %%rsp, (%%rax)\n"
-                 :
-                 : "i"(get_shadow_stack_ptr)
-                 : "memory");
+        asm volatile("callq %P0\n"
+                    "movq %%rsp, (%%rax)\n"
+                    :
+                    : "i"(get_shadow_stack_ptr)
+                    : "memory");
 
-    asm volatile("callq %P0\n"
-                 "movq %c1(%%rax), %%rsp\n"
-                 :
-                 : "i"(get_komb_node), "i"(offsetof(komb_node_t, rsp))
-                 : "memory");
-    asm volatile("popq %%r15\n"
-                 "popq %%r14\n"
-                 "popq %%r13\n"
-                 "popq %%r12\n"
-                 "popq %%rbx\n"
-                 "popq %%rbp\n"
-                 "retq\n"
-                 :
-                 :
-                 : "memory");
+        asm volatile("callq %P0\n"
+                    "movq %c1(%%rax), %%rsp\n"
+                    :
+                    : "i"(get_komb_node), "i"(offsetof(komb_node_t, rsp))
+                    : "memory");
+        asm volatile("popq %%r15\n"
+                    "popq %%r14\n"
+                    "popq %%r13\n"
+                    "popq %%r12\n"
+                    "popq %%rbx\n"
+                    "popq %%rbp\n"
+                    "retq\n"
+                    :
+                    :
+                    : "memory");
+    #elif defined(__aarch64__)
+        asm volatile(
+            "stp x29, x30, [sp, #-16]!\n"
+            "stp x27, x28, [sp, #-16]!\n"
+            "stp x25, x26, [sp, #-16]!\n"
+            "stp x23, x24, [sp, #-16]!\n"
+            "stp x21, x22, [sp, #-16]!\n"
+            "stp x19, x20, [sp, #-16]!\n"
+            "mov x19, x0\n"               /* stash lock before bl clobbers x0  */
+            "bl get_komb_node\n"          /* x0 = &node                        */
+            "mov x1, sp\n"
+            "str x1, [x0, #%c0]\n"        /* node->rsp = sp                    */
+            "bl get_shadow_stack_ptr\n"   /* x0 = &shadow_ptr                  */
+            "ldr x1, [x0]\n"
+            "mov sp, x1\n"                /* sp = shadow stack                 */
+            "mov x0, x19\n"               /* x0 = lock for slowpath call       */
+            "bl __komb_spin_lock_slowpath\n"
+            "bl get_shadow_stack_ptr\n"   /* x0 = &shadow_ptr                  */
+            "mov x1, sp\n"
+            "str x1, [x0]\n"             /* *shadow_ptr = shadow sp            */
+            "bl get_komb_node\n"          /* x0 = &node                        */
+            "ldr x1, [x0, #%c0]\n"
+            "mov sp, x1\n"                /* sp = original stack               */
+            "ldp x19, x20, [sp], #16\n"
+            "ldp x21, x22, [sp], #16\n"
+            "ldp x23, x24, [sp], #16\n"
+            "ldp x25, x26, [sp], #16\n"
+            "ldp x27, x28, [sp], #16\n"
+            "ldp x29, x30, [sp], #16\n"
+            "ret\n"                       /* return from komb_spin_lock_slowpath */
+            :
+            : "i"(offsetof(komb_node_t, rsp))
+            : "memory", "x0", "x1", "x19", "x30");
+    #endif
 }
 
 /* Interpose */

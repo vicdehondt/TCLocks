@@ -85,7 +85,7 @@
 
 #define NUMA_AWARE 1
 
-#ifdef defined(__aarch64__) || defined(__arm__)
+#if defined(__aarch64__) || defined(__arm__)
 
 #define komb_switch_to_shadow_stack()                                          \
     ({                                                                         \

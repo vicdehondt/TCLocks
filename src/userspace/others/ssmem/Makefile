@@ -25,7 +25,7 @@ default: ssmem_test
 # ssmem.o: $(SRC)/ssmem.c 
 # 	$(CC) $(VER_FLAGS) -c $(SRC)/ssmem.c $(CFLAGS) -I./$(INCLUDE)
 ssmem.o: $(SRC)/ssmem.c 
-	$(CC) $(VER_FLAGS) -c $(SRC)/ssmem.c $(CFLAGS) -I./$(INCLUDE) -I../CLHT/include
+	$(CC) $(VER_FLAGS) -c $(SRC)/ssmem.c $(CFLAGS) -I./$(INCLUDE) -I../include
 
 ifeq ($(MEASUREMENTS),1)
 VER_FLAGS += -DDO_TIMINGS

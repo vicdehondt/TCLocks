@@ -34,6 +34,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <atomic_ops.h>
 
 /* **************************************************************************************** */
 /* parameters */

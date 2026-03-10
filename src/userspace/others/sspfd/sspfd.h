@@ -184,6 +184,12 @@ static inline ticks getticks()
 {
   return get_cycle_count();
 }
+#  elif defined(__aarch64__)
+static inline uint64_t getticks(void) {
+  uint64_t val;
+  asm volatile("mrs %0, cntvct_el0" : "=r"(val));
+  return val;
+}
 #  endif
 #endif	/* _H_GETTICKS_ */
 
@@ -194,6 +200,8 @@ static inline ticks getticks()
 #    define PREFETCHW(x) __builtin_prefetch((const void*) x, 1, 3)
 #  elif defined(__tile__)
 #    define PREFETCHW(x) tmc_mem_prefetch (x, 64)
+#  elif defined(__aarch64__) || defined(__arm__)
+#    define PREFETCHW(x) __builtin_prefetch((x), 1, 1)
 #  else
 #    warning "You need to define PREFETCHW(x) for your architecture"
 #  endif
