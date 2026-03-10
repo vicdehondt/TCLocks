@@ -403,6 +403,8 @@ ssmem_ts_set_print(size_t* set)
 #    include <tmc/udn.h>
 #    include <tmc/sync.h>
 #    define PREFETCHW(x) tmc_mem_prefetch ((x), 64)
+#  elif defined(__aarch64__) || defined(__arm__)
+#    define PREFETCHW(x) __builtin_prefetch((x), 1, 1)
 #  else
 #    warning "You need to define PREFETCHW(x) for your architecture"
 #  endif
