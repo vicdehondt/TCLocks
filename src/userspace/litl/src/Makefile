@@ -1,7 +1,13 @@
 include ../Makefile.config
 
-LDFLAGS=-L../obj/CLHT/external/lib -L../obj/CLHT -Wl,--whole-archive -Wl,--version-script=interpose.map -lsspfd -lssmem -lclht -Wl,--no-whole-archive  -lrt -lm -ldl -lpapi -m64 -pthread -Bsymbolic 
+LDFLAGS=-L../obj/CLHT/external/lib -L../obj/CLHT -Wl,--whole-archive -Wl,--version-script=interpose.map -lsspfd -lssmem -lclht -Wl,--no-whole-archive  -lrt -lm -ldl -lpapi -pthread -Bsymbolic 
 CFLAGS=-I../include/ -I../obj/CLHT/include/ -I../obj/CLHT/external/include/ -fPIC -Wall -Werror -O3 -g -fno-stack-protector -fomit-frame-pointer
+
+ARCH := $(shell uname -m)
+    ifeq ($(ARCH), x86_64)
+        CFLAGS += -m64
+        LDFLAGS += -m64
+    endif
 
 # Keep objects files
 .PRECIOUS: %.o

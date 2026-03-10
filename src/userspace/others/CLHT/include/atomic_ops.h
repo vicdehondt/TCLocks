@@ -142,6 +142,59 @@ uint8_t oldval;
 //define PAUSE cycle_relax()
 
 //end of tilera code
+#elif defined(__aarch64__) || defined(__arm__)
+// No xmmintrin on ARM
+
+static inline void* swap_pointer(volatile void* ptr, void *x) {
+    return (void*)__atomic_exchange_n((volatile uintptr_t*)ptr, (uintptr_t)x, __ATOMIC_SEQ_CST);
+}
+static inline uint64_t swap_uint64(volatile uint64_t* target, uint64_t x) {
+    return __atomic_exchange_n(target, x, __ATOMIC_SEQ_CST);
+}
+static inline uint32_t swap_uint32(volatile uint32_t* target, uint32_t x) {
+    return __atomic_exchange_n(target, x, __ATOMIC_SEQ_CST);
+}
+static inline uint16_t swap_uint16(volatile uint16_t* target, uint16_t x) {
+    return __atomic_exchange_n(target, x, __ATOMIC_SEQ_CST);
+}
+static inline uint8_t swap_uint8(volatile uint8_t* target, uint8_t x) {
+    return __atomic_exchange_n(target, x, __ATOMIC_SEQ_CST);
+}
+static inline uint8_t tas_uint8(volatile uint8_t *addr) {
+    uint8_t one = 0xff;
+    return __atomic_exchange_n(addr, one, __ATOMIC_SEQ_CST);
+}
+
+#define CAS_PTR(a,b,c)  __sync_val_compare_and_swap(a,b,c)
+#define CAS_U8(a,b,c)   __sync_val_compare_and_swap(a,b,c)
+#define CAS_U16(a,b,c)  __sync_val_compare_and_swap(a,b,c)
+#define CAS_U32(a,b,c)  __sync_val_compare_and_swap(a,b,c)
+#define CAS_U64(a,b,c)  __sync_val_compare_and_swap(a,b,c)
+#define SWAP_PTR(a,b)   swap_pointer(a,b)
+#define SWAP_U8(a,b)    swap_uint8(a,b)
+#define SWAP_U16(a,b)   swap_uint16(a,b)
+#define SWAP_U32(a,b)   swap_uint32(a,b)
+#define SWAP_U64(a,b)   swap_uint64(a,b)
+#define FAI_U8(a)       __sync_fetch_and_add(a,1)
+#define FAI_U16(a)      __sync_fetch_and_add(a,1)
+#define FAI_U32(a)      __sync_fetch_and_add(a,1)
+#define FAIV_U32(a,v)   __sync_fetch_and_add(a,v)
+#define FAI_U64(a)      __sync_fetch_and_add(a,1)
+#define FAD_U8(a)       __sync_fetch_and_sub(a,1)
+#define FAD_U16(a)      __sync_fetch_and_sub(a,1)
+#define FAD_U32(a)      __sync_fetch_and_sub(a,1)
+#define FAD_U64(a)      __sync_fetch_and_sub(a,1)
+#define IAF_U8(a)       __sync_add_and_fetch(a,1)
+#define IAF_U16(a)      __sync_add_and_fetch(a,1)
+#define IAF_U32(a)      __sync_add_and_fetch(a,1)
+#define IAF_U64(a)      __sync_add_and_fetch(a,1)
+#define DAF_U8(a)       __sync_sub_and_fetch(a,1)
+#define DAF_U16(a)      __sync_sub_and_fetch(a,1)
+#define DAF_U32(a)      __sync_sub_and_fetch(a,1)
+#define DAF_U64(a)      __sync_sub_and_fetch(a,1)
+#define TAS_U8(a)       tas_uint8(a)
+#define MEM_BARRIER     __sync_synchronize()
+
 #else
 /*
  *  x86 code

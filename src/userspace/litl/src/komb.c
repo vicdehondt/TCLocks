@@ -14,6 +14,7 @@
 #include <combiner.h>
 #include <komb.h>
 #include <combiner.h>
+#include <sched.h>
 
 #pragma GCC push_options
 #pragma GCC optimize("O3")
@@ -88,12 +89,33 @@ extern __thread unsigned int cur_thread_id;
                 __LINE__, ##__VA_ARGS__);                                      \
     } while (0);
 
+// static inline int current_numa_node() {
+//     unsigned long a, d, c;
+//     int core;
+//     __asm__ volatile("rdtscp" : "=a"(a), "=d"(d), "=c"(c));
+//     core = c & 0xFFF;
+//     return core / (CPU_NUMBER / NUMA_NODES);
+// }
+
 static inline int current_numa_node() {
+#if defined(__x86_64__)
     unsigned long a, d, c;
-    int core;
     __asm__ volatile("rdtscp" : "=a"(a), "=d"(d), "=c"(c));
-    core = c & 0xFFF;
+    int core = c & 0xFFF;
+#else
+    int core = sched_getcpu();
+    if (core < 0)
+        return 0;
+#endif
+
+#if !defined(NUMA_NODES) || NUMA_NODES <= 1
+    // Single-node system (e.g. Raspberry Pi): always NUMA node 0.
+    // Also guards against the division-by-zero when NUMA_NODES is 0 or 1.
+    (void)core;
+    return 0;
+#else
     return core / (CPU_NUMBER / NUMA_NODES);
+#endif
 }
 
 #define false 0

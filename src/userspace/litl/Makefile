@@ -3,8 +3,14 @@
 # - we need special version of CLHT and ssmem (to compile them for shared library)
 include Makefile.config
 
-LDFLAGS=-LCLHT/external/lib -LCLHT -lsspfd -lssmem -lclht -lrt -lm -m64 -pthread
+LDFLAGS=-LCLHT/external/lib -LCLHT -lsspfd -lssmem -lclht -lrt -lm -pthread
 CFLAGS=-Iinclude/ -g -O0 -fomit-frame-pointer -fno-stack-protector
+
+ARCH := $(shell uname -m)
+    ifeq ($(ARCH), x86_64)
+        CFLAGS += -m64
+        LDFLAGS += -m64
+    endif
 
 TARGETS=$(addprefix lib, $(ALGORITHMS))
 DIR=$(addprefix obj/, $(ALGORITHMS))

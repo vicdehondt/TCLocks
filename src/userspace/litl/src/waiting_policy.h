@@ -30,6 +30,13 @@
  * On our Linux machine, with lmbench, we measured a context switch time
  * of 9 us. Then, the corresponding number of iterations has been
  * determined through rdtscll measurements at the maximum CPU frequency.
+ *
+ * NOTE (ARM port): The original value of 2700 was tuned on x86 using rdtsc.
+ * On AArch64, CPU_PAUSE() (yield) is cheaper than x86 pause, so each
+ * iteration is shorter. 2700 is a conservative lower bound and will still
+ * produce correct behaviour; it may just park slightly earlier than optimal.
+ * Re-tune with: measure context-switch time (lmbench lat_ctx), multiply by
+ * your CPU frequency in GHz, divide by the cost of one yield loop iteration.
  **/
 #define SPINNING_THRESHOLD 2700LL
 
