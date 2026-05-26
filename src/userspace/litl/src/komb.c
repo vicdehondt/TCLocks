@@ -598,6 +598,7 @@ int komb_mutex_destroy(komb_mutex_t *lock) {
 int komb_cond_init(komb_cond_t *cond, const pthread_condattr_t *attr) {
 #if COND_VAR
     // return REAL(pthread_cond_init)(cond, attr);
+    return 0;
 #else
     fprintf(stderr, "Error cond_var not supported.");
     assert(0);
@@ -618,8 +619,10 @@ int komb_cond_timedwait(komb_cond_t *cond, komb_mutex_t *lock,
 
     if (ts)
         // res = REAL(pthread_cond_timedwait)(cond, &lock->posix_lock, ts);
+        res = 0;
     else
         // res = REAL(pthread_cond_wait)(cond, &lock->posix_lock);
+        res = 0;
 
     if (res != 0 && res != ETIMEDOUT) {
         fprintf(stderr, "Error on cond_{timed,}wait %d\n", res);
@@ -648,6 +651,7 @@ int komb_cond_wait(komb_cond_t *cond, komb_mutex_t *lock, komb_node_t *me) {
 int komb_cond_signal(komb_cond_t *cond) {
 #if COND_VAR
     // return REAL(pthread_cond_signal)(cond);
+    return 0;
 #else
     fprintf(stderr, "Error cond_var not supported.");
     assert(0);
@@ -658,6 +662,7 @@ int komb_cond_broadcast(komb_cond_t *cond) {
 #if COND_VAR
     DEBUG("[%d] Broadcast cond=%p\n", cur_thread_id, cond);
     // return REAL(pthread_cond_broadcast)(cond);
+    return 0;
 #else
     fprintf(stderr, "Error cond_var not supported.");
     assert(0);
@@ -667,6 +672,7 @@ int komb_cond_broadcast(komb_cond_t *cond) {
 int komb_cond_destroy(komb_cond_t *cond) {
 #if COND_VAR
     // return REAL(pthread_cond_destroy)(cond);
+    return 0;
 #else
     fprintf(stderr, "Error cond_var not supported.");
     assert(0);
