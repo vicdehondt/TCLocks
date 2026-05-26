@@ -8,7 +8,7 @@
 #include <string.h>
 #include <sys/mman.h>
 
-#include "interpose.h"
+// #include "interpose.h" // Tilt does interposition
 #include "utils.h"
 #include "waiting_policy.h"
 #include <combiner.h>
@@ -17,6 +17,8 @@
 
 #pragma GCC push_options
 #pragma GCC optimize("O3")
+
+__thread unsigned int cur_thread_id;
 
 //#define WAITER_DEBUG
 
