@@ -629,7 +629,7 @@ int komb_cond_timedwait(komb_cond_t *cond, komb_mutex_t *lock,
         assert(0);
     }
 
-    int ret = 0;
+    // int ret = 0;
     // if ((ret = REAL(pthread_mutex_unlock)(&lock->posix_lock)) != 0) {
     //     fprintf(stderr, "Error on mutex_unlock %d\n", ret == EPERM);
     //     assert(0);
